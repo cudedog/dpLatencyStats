@@ -2,9 +2,6 @@ import re
 import sys
 import os.path
 
-import numpy as np
-import pandas as pd
-
 usage = """Usage: dplog2csv.py [-v] [-f] <base name> [-o output name]
 
   Description: Converts a DataPower latency log to a comma-separated-value
@@ -28,24 +25,36 @@ usage = """Usage: dplog2csv.py [-v] [-f] <base name> [-o output name]
 # description see 
 #
 #     https://gist.github.com/pglezen/b724ee99d6cd4edb0217
-#
-reg = re.compile(r'\w\w\w (\w\w\w \d\d \d\d\d\d \d\d:\d\d:\d\d) \[0x80e00073\]\[latency\]\[info\] \w+\(([^)]+)\): tid\((\d+)\).+ Latency:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+\[(https?://[^/]+)([^?]+)?(\?.+)?\]')
+# 
+# Modified by Z Cude to test for presence of query paramter and use a different regex match if there isn't one.  
+# This avoids an error in the original script if query parameters weren't present.
+
+# This one separates the query parameter into a 22nd group
+reg22 = re.compile(r'\w\w\w (\w\w\w \d\d \d\d\d\d \d\d:\d\d:\d\d) \[0x80e00073\]\[latency\]\[info\] \w+\(([^)]+)\): tid\((\d+)\).+ Latency:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+\[(https?://[^/]+)([^?]+)?(\?.+)?\]')
+
+# This regex put the query parameter in with the URI
+reg21 = re.compile(r'\w\w\w (\w\w\w \d\d \d\d\d\d \d\d:\d\d:\d\d) \[0x80e00073\]\[latency\]\[info\] \w+\(([^)]+)\): tid\((\d+)\).+ Latency:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+\[(https?://[^/]+)(.+)?\]')
 
 def to_csv(latency_filename, csv_filename, append=False):
   """" Convert latency records to CSV format and store them
        to a .csv file."""
   csvmode = 'a' if append else 'w'
   lines_processed = 0
-  csv_mode = 'a' if append  else 'w'
   latfile = open(latency_filename, 'r')
   csvfile = open(csv_filename, csvmode)
 
   if not append:
-    csvfile.write('Time,ProxyName,TxnID,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,url,uri,q\n')
+    csvfile.write('Time,ProxyName,TxnID,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,url,uri\n')
 
   for line in latfile:
-    fields = reg.match(line)
-    if fields != None:
+    checkNumberOfFields = reg22.fullmatch(line)
+    if checkNumberOfFields != None:
+      fields = reg22.match(line)
+      csvline = ','.join(fields.groups())
+      csvfile.write(csvline + '\n')
+      lines_processed += 1
+    else:
+      fields = reg21.match(line)
       csvline = ','.join(fields.groups())
       csvfile.write(csvline + '\n')
       lines_processed += 1
